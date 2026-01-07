@@ -1,0 +1,112 @@
+{
+  "sectionId": "greeting-default",
+  "sectionType": "greeting",
+  "aspectRatio": {
+    "x": 335,
+    "y": 515
+  },
+  "globalStyles": {
+    "position": "relative",
+    "width": "100%",
+    "height": "100%"
+  },
+  "components": [
+    {
+      "id": "1786-34521",
+      "type": "text",
+      "content": "invitation",
+      "style": {
+        "position": "absolute",
+        "left": "108.0px",
+        "top": "50.0px",
+        "width": "119.0px",
+        "fontSize": "18.0px",
+        "fontFamily": "NanumMyeongjo, serif",
+        "fontWeight": 600,
+        "textAlign": "center",
+        "lineHeight": "28.0px",
+        "letterSpacing": "0.9px",
+        "color": "rgb(103, 66, 6)",
+        "textTransform": "uppercase"
+      }
+    },
+    {
+      "id": "1786-49523",
+      "type": "text",
+      "content": "서로가 마주보며 다져온 사랑을\n함께 한 곳을 바라보며 걸어갈 수 있는\n사랑으로 키우고자 합니다.\n저희 두 사람이 사랑의 이름으로\n지켜나갈 수 있게 앞날을\n축복해 주시면 감사하겠습니다.",
+      "style": {
+        "position": "absolute",
+        "left": "50%",
+        "top": "107.0px",
+        "width": "100%",
+        "fontSize": "14.0px",
+        "fontFamily": "NanumMyeongjo, serif",
+        "fontWeight": 400,
+        "textAlign": "center",
+        "lineHeight": "26.6px",
+        "letterSpacing": "0.2px",
+        "color": "rgb(51, 51, 51)",
+        "whiteSpace": "pre-line",
+        "transform": "translateX(-50%)"
+      }
+    },
+    {
+      "id": "family-info-group",
+      "type": "text",
+      "content": "이인수·김영희의 아들 이준서\n김희승·최수연의 딸 김은재",
+      "style": {
+        "position": "absolute",
+        "left": "50%",
+        "top": "318.0px",
+        "width": "100%",
+        "fontSize": "14.0px",
+        "fontFamily": "NanumMyeongjo, serif",
+        "fontWeight": 400,
+        "textAlign": "center",
+        "lineHeight": "26.6px",
+        "letterSpacing": "0.2px",
+        "color": "rgb(51, 51, 51)",
+        "whiteSpace": "pre-line",
+        "transform": "translateX(-50%)"
+      }
+    },
+    {
+      "id": "1786-49531",
+      "type": "text",
+      "content": "2025년 10월 12일 토요일 오후 2시",
+      "style": {
+        "position": "absolute",
+        "left": "50%",
+        "top": "394.0px",
+        "width": "100%",
+        "fontSize": "14.0px",
+        "fontFamily": "NanumMyeongjo, serif",
+        "fontWeight": 400,
+        "textAlign": "center",
+        "lineHeight": "26.6px",
+        "letterSpacing": "0.2px",
+        "color": "rgb(51, 51, 51)",
+        "transform": "translateX(-50%)"
+      }
+    },
+    {
+      "id": "1786-49530",
+      "type": "text",
+      "content": "메종 드 프리미어 그랜드홀",
+      "style": {
+        "position": "absolute",
+        "left": "50%",
+        "top": "424.0px",
+        "width": "100%",
+        "fontSize": "14.0px",
+        "fontFamily": "NanumMyeongjo, serif",
+        "fontWeight": 400,
+        "textAlign": "center",
+        "lineHeight": "26.6px",
+        "letterSpacing": "0.2px",
+        "color": "rgb(51, 51, 51)",
+        "transform": "translateX(-50%)"
+      }
+    }
+  ]
+}

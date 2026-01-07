@@ -1,0 +1,216 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #f5f5f5;
+}
+
+/* 상단 툴바 */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background-color: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.toolbar h1 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mode-toggle {
+  display: flex;
+  background-color: #f0f0f0;
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.mode-btn {
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-btn.active {
+  background-color: #fff;
+  color: #333;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.mode-btn:hover:not(.active) {
+  color: #333;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+}
+
+.toggle-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.export-btn {
+  padding: 8px 16px;
+  background-color: #60C0BA;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.export-btn:hover {
+  background-color: #4aa8a2;
+}
+
+/* 에디터 영역 */
+.editor-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow: auto;
+}
+
+/* 하단 안내 */
+.footer {
+  padding: 12px 20px;
+  background-color: #fff;
+  border-top: 1px solid #e0e0e0;
+  text-align: center;
+}
+
+.footer p {
+  font-size: 13px;
+  color: #888;
+  margin: 4px 0;
+}
+
+/* Moveable 스타일 오버라이드 */
+
+/* 중앙 스냅 가이드라인 - 민트색 실선 (기존 유지) */
+.moveable-line.moveable-guideline {
+  background: #60C0BA !important;
+}
+
+.moveable-line.moveable-guideline.moveable-vertical {
+  width: 1px !important;
+}
+
+.moveable-line.moveable-guideline.moveable-horizontal {
+  height: 1px !important;
+}
+
+/* 요소 선택 테두리 (direction line) - 회색 점선 → 선택시 민트 실선 */
+.moveable-line.moveable-direction {
+  background: none !important;
+  border: 1px dashed #999 !important;
+}
+
+.moveable-line.moveable-direction.moveable-edge {
+  background: #60C0BA !important;
+  border: none !important;
+}
+
+/* 불필요한 UI 요소 숨기기 */
+.moveable-gap,
+.moveable-size-value,
+.moveable-snap-digit,
+.moveable-dashed,
+.moveable-bold {
+  display: none !important;
+}
+
+/* 스케일 조절용 코너 핸들 스타일 */
+.moveable-control {
+  width: 12px !important;
+  height: 12px !important;
+  background: #60C0BA !important;
+  border: 2px solid #fff !important;
+  border-radius: 50% !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+}
+
+/* 코너만 보이게 (edge 핸들 숨김) */
+.moveable-control.moveable-n,
+.moveable-control.moveable-s,
+.moveable-control.moveable-e,
+.moveable-control.moveable-w {
+  display: none !important;
+}
+
+/* 반응형 - iPhone SE 등 소형 기기 대응 (375px 이하) */
+@media (max-width: 390px) {
+  .toolbar {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .toolbar h1 {
+    font-size: 16px;
+  }
+
+  .toolbar-actions {
+    gap: 8px;
+  }
+
+  .mode-toggle {
+    padding: 2px;
+  }
+
+  .mode-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .editor-container {
+    padding: 10px;
+  }
+
+  .footer {
+    padding: 10px 12px;
+  }
+
+  .footer p {
+    font-size: 12px;
+  }
+}
