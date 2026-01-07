@@ -229,8 +229,6 @@ export default function EditableElement({
           scalable={true}
           pinchable={true}
           snappable={true}
-          snapCenter={true}
-          snapGap={false}
           snapThreshold={5}
           isDisplaySnapDigit={false}
           snapDirections={{ center: true, middle: true }}

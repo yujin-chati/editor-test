@@ -1,73 +1,92 @@
-# React + TypeScript + Vite
+# Greeting Editor
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+모바일 청첩장/인사장 텍스트 편집기 컴포넌트
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **인라인 편집 모드**: 텍스트를 직접 클릭해서 편집
+- **모달 편집 모드**: 전체 화면 모달에서 편집 (인스타그램 스타일)
+- **드래그 이동**: 텍스트 요소를 드래그해서 위치 변경
+- **핀치 줌 / 코너 드래그**: 텍스트 크기 조절 (fontSize, width, lineHeight 비례 변경)
+- **스냅 가이드**: 중앙 정렬 스냅 기능
+- **반응형 디자인**: iPhone SE (375px) 대응
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19
+- TypeScript
+- Vite
+- react-moveable (드래그, 스케일, 핀치 줌)
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+```bash
+# 의존성 설치
+npm install
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+# 개발 서버 실행
+npm run dev
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# 빌드
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Usage
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```tsx
+import GreetingEditor from './components/GreetingEditor';
+import GreetingEditorModal from './components/GreetingEditorModal';
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+// 인라인 편집 모드
+<GreetingEditor
+  templateUrl="/greeting-default.json"
+  onUpdate={(components) => console.log(components)}
+/>
+
+// 모달 편집 모드
+<GreetingEditorModal
+  templateUrl="/greeting-default.json"
+  onUpdate={(components) => console.log(components)}
+/>
 ```
+
+## Template JSON Format
+
+```json
+{
+  "sectionId": "greeting-default",
+  "sectionType": "greeting",
+  "aspectRatio": { "x": 335, "y": 515 },
+  "components": [
+    {
+      "id": "unique-id",
+      "type": "text",
+      "content": "텍스트 내용",
+      "style": {
+        "position": "absolute",
+        "left": "50%",
+        "top": "100px",
+        "fontSize": "14px",
+        "fontFamily": "NanumMyeongjo, serif",
+        "textAlign": "center",
+        "lineHeight": "26px",
+        "color": "rgb(51, 51, 51)"
+      }
+    }
+  ]
+}
+```
+
+## Components
+
+| Component | Description |
+|-----------|-------------|
+| `GreetingEditor` | 인라인 편집 + SlimToolbar |
+| `GreetingEditorModal` | 모달 편집 + 전체 화면 툴바 |
+| `EditableElement` | 드래그/스케일 가능한 요소 래퍼 |
+| `TextEditModal` | 전체 화면 텍스트 편집 모달 |
+| `SlimToolbar` | 하단 고정 스타일 툴바 |
+
+## License
+
+MIT
