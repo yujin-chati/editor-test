@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react';
 import EditableElementModal from './EditableElementModal';
 import TextEditModal from './TextEditModal';
 
+const getBaseViewportHeight = () => {
+  if (typeof window === 'undefined') return 0;
+  return window.innerHeight || document.documentElement.clientHeight || 0;
+};
+
 interface ComponentStyle {
   position?: string;
   left?: string;
@@ -44,6 +49,7 @@ export default function GreetingEditorModal({
   initialTemplate,
   onUpdate,
 }: GreetingEditorModalProps) {
+  const baseViewportHeightRef = useState(getBaseViewportHeight())[0];
   const [template, setTemplate] = useState<GreetingTemplate | null>(
     initialTemplate || null
   );
@@ -75,7 +81,7 @@ export default function GreetingEditorModal({
       });
   }, [templateUrl, initialTemplate]);
 
-  // 스케일 계산 effect
+  // 스케일 계산 effect (편집 모달이 열렸을 때는 keyboard resize에 반응하지 않도록 중단)
   useEffect(() => {
     if (!template) return;
 
@@ -91,10 +97,16 @@ export default function GreetingEditorModal({
       setScale(newScale);
     };
 
-    calculateScale();
-    window.addEventListener('resize', calculateScale);
-    return () => window.removeEventListener('resize', calculateScale);
-  }, [template]);
+    // 모달이 닫혀 있을 때만 리사이즈에 반응
+    if (!editingComponent) {
+      calculateScale();
+      window.addEventListener('resize', calculateScale);
+    }
+
+    return () => {
+      window.removeEventListener('resize', calculateScale);
+    };
+  }, [template, editingComponent]);
 
   // 요소 위치 업데이트
   const handlePositionChange = (elementId: string, x: number, y: number) => {
@@ -196,12 +208,15 @@ export default function GreetingEditorModal({
     <div
       style={{
         width: '100%',
-        height: '100%',
+        height: editingComponent ? `${baseViewportHeightRef}px` : '100%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: '#e8e8e8',
         padding: '10px',
+        position: editingComponent ? 'fixed' : 'relative',
+        inset: editingComponent ? 0 : undefined,
+        overflow: 'hidden',
       }}
       onClick={handleBackgroundClick}
     >
@@ -266,11 +281,13 @@ export default function GreetingEditorModal({
               onSelect={() => handleElementSelect(id)}
               onPositionChange={(x, y) => handlePositionChange(id, x, y)}
               onClick={() => handleElementClick(component)}
+              onRelease={() => setSelectedElementId(null)}
               containerBounds={{ width: aspectRatio.x, height: aspectRatio.y }}
               guidelines={{
                 vertical: [aspectRatio.x / 2],
                 horizontal: [aspectRatio.y / 2],
               }}
+              disabled={Boolean(editingComponent)}
             >
               {type === 'text' && (
                 <div style={textStyle}>

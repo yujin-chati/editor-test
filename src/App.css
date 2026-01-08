@@ -4,9 +4,31 @@
   box-sizing: border-box;
 }
 
-html, body, #root {
+html {
   width: 100%;
   height: 100%;
+  overflow: hidden;
+  position: fixed;
+  touch-action: pan-y;
+}
+
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
 }
 
@@ -14,7 +36,11 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   height: 100%;
+  width: 100%;
+  max-width: 100vw;
   background-color: #f5f5f5;
+  overflow: hidden;
+  position: relative;
 }
 
 /* 상단 툴바 */
@@ -22,22 +48,29 @@ html, body, #root {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 20px;
+  padding: 10px 12px;
   background-color: #fff;
   border-bottom: 1px solid #e0e0e0;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 100vw;
+  overflow: hidden;
 }
 
 .toolbar h1 {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 600;
   color: #333;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .mode-toggle {
@@ -48,15 +81,16 @@ html, body, #root {
 }
 
 .mode-btn {
-  padding: 6px 12px;
+  padding: 5px 10px;
   border: none;
   background: transparent;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: #666;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .mode-btn.active {
@@ -106,22 +140,28 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  overflow: auto;
+  padding: 10px;
+  overflow: hidden;
+  width: 100%;
+  max-width: 100vw;
+  min-height: 0;
 }
 
 /* 하단 안내 */
 .footer {
-  padding: 12px 20px;
+  padding: 8px 12px;
   background-color: #fff;
   border-top: 1px solid #e0e0e0;
   text-align: center;
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 100vw;
 }
 
 .footer p {
-  font-size: 13px;
+  font-size: 11px;
   color: #888;
-  margin: 4px 0;
+  margin: 0;
 }
 
 /* Moveable 스타일 오버라이드 */

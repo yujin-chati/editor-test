@@ -9,8 +9,10 @@ interface EditableElementModalProps {
   onSelect: () => void;
   onPositionChange: (x: number, y: number) => void;
   onClick: () => void;
+  onRelease?: () => void;
   containerBounds?: { width: number; height: number };
   guidelines?: { vertical: number[]; horizontal: number[] };
+  disabled?: boolean;
 }
 
 /**
@@ -26,14 +28,18 @@ export default function EditableElementModal({
   onSelect,
   onPositionChange,
   onClick,
+  onRelease,
   containerBounds = { width: 335, height: 515 },
   guidelines = { vertical: [167.5], horizontal: [257.5] },
+  disabled = false,
 }: EditableElementModalProps) {
   const targetRef = useRef<HTMLDivElement>(null);
 
   // 드래그 감지용
   const isDraggingRef = useRef(false);
   const mouseDownPosRef = useRef({ x: 0, y: 0 });
+  // 현재 포인터 제스처가 이 요소에서 시작되었는지 여부
+  const allowDragRef = useRef(false);
 
   // position이 변경되면 DOM 직접 업데이트
   useEffect(() => {
@@ -53,11 +59,15 @@ export default function EditableElementModal({
     // 5px 이상 이동했으면 드래그로 판정, 클릭 무시
     if (dx > 5 || dy > 5 || isDraggingRef.current) {
       isDraggingRef.current = false;
+      allowDragRef.current = false;
+      onRelease?.();
       return;
     }
 
-    onSelect();
-    onClick();
+    if (!disabled) {
+      onSelect();
+      onClick();
+    }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -71,11 +81,16 @@ export default function EditableElementModal({
     // 5px 이상 이동했으면 드래그로 판정, 클릭 무시
     if (dx > 5 || dy > 5 || isDraggingRef.current) {
       isDraggingRef.current = false;
+      allowDragRef.current = false;
+      onRelease?.();
       return;
     }
 
-    onSelect();
-    onClick();
+    if (!disabled) {
+      onSelect();
+      onClick();
+    }
+    allowDragRef.current = false;
   };
 
   return (
@@ -85,11 +100,19 @@ export default function EditableElementModal({
         onMouseDown={(e) => {
           mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
           isDraggingRef.current = false;
+          allowDragRef.current = !disabled;
+          if (!disabled) {
+            onSelect();
+          }
         }}
         onTouchStart={(e) => {
           const touch = e.touches[0];
           mouseDownPosRef.current = { x: touch.clientX, y: touch.clientY };
           isDraggingRef.current = false;
+          allowDragRef.current = !disabled;
+          if (!disabled) {
+            onSelect();
+          }
         }}
         onMouseUp={handleMouseUp}
         onTouchEnd={handleTouchEnd}
@@ -98,10 +121,11 @@ export default function EditableElementModal({
           left: 0,
           top: 0,
           transform: `translate(${position.x}px, ${position.y}px)`,
-          cursor: 'move',
+          cursor: disabled ? 'default' : 'move',
           outline: isSelected ? '2px solid #60C0BA' : '1px dashed #999',
           outlineOffset: isSelected ? '4px' : '2px',
           borderRadius: '2px',
+          pointerEvents: disabled ? 'none' : 'auto',
         }}
       >
         {children}
@@ -145,7 +169,7 @@ export default function EditableElementModal({
       </div>
 
       {/* Moveable */}
-      {targetRef.current && (
+      {targetRef.current && !disabled && (
         <Moveable
           target={targetRef.current}
           draggable={true}
@@ -160,10 +184,15 @@ export default function EditableElementModal({
           horizontalGuidelines={guidelines.horizontal}
           elementGuidelines={[]}
           hideDefaultLines={true}
-          onDragStart={() => {
+          onDragStart={(e) => {
+            // 선택되지 않은 상태에서 바로 드래그하면 먼저 선택 처리
+            if (!disabled && !isSelected) {
+              onSelect();
+            }
             isDraggingRef.current = false;
           }}
           onDrag={(e) => {
+            if (disabled || !allowDragRef.current) return;
             // 5px 이상 이동하면 드래그로 판정
             const dx = Math.abs(e.clientX - mouseDownPosRef.current.x);
             const dy = Math.abs(e.clientY - mouseDownPosRef.current.y);
@@ -175,18 +204,21 @@ export default function EditableElementModal({
             e.target.style.transform = e.transform;
           }}
           onDragEnd={(e) => {
-            // transform에서 translate 값 추출
-            const matrix = new DOMMatrix(e.target.style.transform);
-            const x = matrix.m41;
-            const y = matrix.m42;
-
-            onPositionChange(x, y);
+            // 실제 드래그한 경우에만 처리
+            if (isDraggingRef.current && allowDragRef.current) {
+              const matrix = new DOMMatrix(e.target.style.transform);
+              const x = matrix.m41;
+              const y = matrix.m42;
+              onPositionChange(x, y);
+              onRelease?.();
+            }
             isDraggingRef.current = false;
+            allowDragRef.current = false;
           }}
-          bounds={{
-            left: -Infinity,
-            top: 0,
-            right: Infinity,
+    bounds={{
+      left: -Infinity,
+      top: 0,
+      right: Infinity,
             bottom: containerBounds.height,
           }}
           origin={false}

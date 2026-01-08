@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 // 폰트 스타일 프리셋
 const FONT_STYLES = [
@@ -41,6 +41,7 @@ export default function SlimToolbar({
 }: SlimToolbarProps) {
   const [activePopup, setActivePopup] = useState<ActivePopup>('none');
   const [selectedStyleId, setSelectedStyleId] = useState('classic');
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
 
   const currentColor = style.color || '#333333';
   const currentSize = parseInt(style.fontSize?.replace('px', '') || '14');
@@ -76,6 +77,46 @@ export default function SlimToolbar({
     setActivePopup(prev => prev === popup ? 'none' : popup);
   };
 
+  // 키보드가 올라올 때 바텀시트를 위로 올리기
+  useEffect(() => {
+    const viewport = window.visualViewport;
+
+    const updateOffset = () => {
+      if (!viewport) {
+        setKeyboardOffset(0);
+        return;
+      }
+      const layoutHeight = window.innerHeight || document.documentElement.clientHeight;
+      const visibleBottom = viewport.offsetTop + viewport.height;
+      const offset = Math.max(0, Math.round(layoutHeight - visibleBottom));
+      setKeyboardOffset(offset);
+    };
+
+    const handleFocusIn = () => {
+      setTimeout(updateOffset, 100);
+      setTimeout(updateOffset, 200);
+      setTimeout(updateOffset, 300);
+      setTimeout(updateOffset, 400);
+      setTimeout(updateOffset, 500);
+    };
+    const handleFocusOut = () => {
+      setTimeout(() => setKeyboardOffset(0), 100);
+    };
+
+    viewport?.addEventListener('resize', updateOffset);
+    viewport?.addEventListener('scroll', updateOffset);
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
+    updateOffset();
+
+    return () => {
+      viewport?.removeEventListener('resize', updateOffset);
+      viewport?.removeEventListener('scroll', updateOffset);
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
+    };
+  }, []);
+
   return (
     <div style={{ position: 'fixed', left: 0, bottom: 0, width: '100%', zIndex: 50 }}>
       {/* 팝업 영역 */}
@@ -86,6 +127,7 @@ export default function SlimToolbar({
             padding: '12px 16px',
             borderTopLeftRadius: '12px',
             borderTopRightRadius: '12px',
+            marginBottom: `${keyboardOffset}px`,
           }}
         >
           {/* 폰트 */}
@@ -217,7 +259,8 @@ export default function SlimToolbar({
         style={{
           backgroundColor: 'rgba(0, 0, 0, 0.9)',
           padding: '10px 16px',
-          paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
+          paddingBottom: keyboardOffset > 0 ? '10px' : 'max(10px, env(safe-area-inset-bottom))',
+          marginBottom: `${keyboardOffset}px`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',

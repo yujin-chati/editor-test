@@ -49,6 +49,11 @@ export default function TextEditModal({
   onStyleChange,
   onClose,
 }: TextEditModalProps) {
+  const baseViewportHeightRef = useRef<number>(
+    typeof window !== 'undefined'
+      ? window.innerHeight || document.documentElement.clientHeight
+      : 0
+  );
   const [htmlContent, setHtmlContent] = useState('');
   const editorRef = useRef<HTMLDivElement>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -56,6 +61,10 @@ export default function TextEditModal({
   // 툴바 상태
   const [activePopup, setActivePopup] = useState<ActivePopup>('none');
   const [selectedStyleId, setSelectedStyleId] = useState('classic');
+
+  // 소프트 키보드가 올라왔을 때 툴바를 바로 위에 붙이기 위한 bottom 오프셋
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const keyboardWatcherRef = useRef<number | null>(null);
 
   const currentColor = component.style.color || '#333333';
   const currentSize = parseInt(component.style.fontSize?.replace('px', '') || '14');
@@ -98,6 +107,132 @@ export default function TextEditModal({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
+
+  // 키보드 높이 감지 - iOS Safari 대응
+  useEffect(() => {
+    const viewport = window.visualViewport;
+
+    const updateKeyboardOffset = () => {
+      if (!viewport) {
+        setKeyboardOffset(0);
+        return;
+      }
+
+      // layout viewport bottom과 visual viewport bottom 차이를 키보드 높이로 간주
+      const layoutHeight =
+        baseViewportHeightRef.current ||
+        window.innerHeight ||
+        document.documentElement.clientHeight;
+      // iOS Safari: offsetTop은 keyboard 위로 밀린 만큼을 포함
+      const visibleBottom = viewport.offsetTop + viewport.height;
+      const offset = Math.max(0, Math.round(layoutHeight - visibleBottom));
+      // 일부 케이스에서 offsetTop이 0으로 떨어지면 height 차이만 사용
+      const fallback = Math.max(
+        0,
+        Math.round(layoutHeight - viewport.height - viewport.offsetTop)
+      );
+      setKeyboardOffset(Math.max(offset, fallback));
+      setKeyboardOffset(offset);
+    };
+
+    // focusin 이벤트로 키보드 감지 (iOS에서 더 안정적)
+    const handleFocusIn = () => {
+      // 키보드가 올라오는 시간을 기다림
+      setTimeout(updateKeyboardOffset, 100);
+      setTimeout(updateKeyboardOffset, 200);
+      setTimeout(updateKeyboardOffset, 300);
+      setTimeout(updateKeyboardOffset, 400);
+      setTimeout(updateKeyboardOffset, 500);
+
+      // iOS에서 visualViewport 이벤트가 늦게 오는 경우 폴링으로 보정
+      if (keyboardWatcherRef.current) {
+        window.clearInterval(keyboardWatcherRef.current);
+      }
+      keyboardWatcherRef.current = window.setInterval(updateKeyboardOffset, 120);
+      setTimeout(() => {
+        if (keyboardWatcherRef.current) {
+          window.clearInterval(keyboardWatcherRef.current);
+          keyboardWatcherRef.current = null;
+        }
+      }, 1200);
+    };
+
+    const handleFocusOut = () => {
+      setTimeout(() => setKeyboardOffset(0), 100);
+      if (keyboardWatcherRef.current) {
+        window.clearInterval(keyboardWatcherRef.current);
+        keyboardWatcherRef.current = null;
+      }
+    };
+
+    if (viewport) {
+      viewport.addEventListener('resize', updateKeyboardOffset);
+      viewport.addEventListener('scroll', updateKeyboardOffset);
+    }
+
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
+
+    // 초기 체크
+    updateKeyboardOffset();
+
+    return () => {
+      if (viewport) {
+        viewport.removeEventListener('resize', updateKeyboardOffset);
+        viewport.removeEventListener('scroll', updateKeyboardOffset);
+      }
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
+      if (keyboardWatcherRef.current) {
+        window.clearInterval(keyboardWatcherRef.current);
+        keyboardWatcherRef.current = null;
+      }
+    };
+  }, []);
+
+  // 모달 열릴 때 body 스크롤 방지
+  useEffect(() => {
+    const baseHeight = baseViewportHeightRef.current || window.innerHeight || 0;
+    const originalBodyStyle = document.body.style.cssText;
+    const originalHtmlStyle = document.documentElement.style.cssText;
+    const rootEl = document.getElementById('root');
+    const originalRootStyle = rootEl?.style.cssText;
+
+    // 화면 높이를 픽셀로 고정해 visualViewport 축소 시에도 캔버스가 이동하지 않도록 고정
+    document.documentElement.style.cssText = `
+      height: ${baseHeight}px;
+      max-height: ${baseHeight}px;
+      width: 100%;
+      overflow: hidden;
+      position: fixed;
+      inset: 0;
+    `;
+    document.body.style.cssText = `
+      overflow: hidden;
+      position: fixed;
+      width: 100%;
+      height: ${baseHeight}px;
+      max-height: ${baseHeight}px;
+      top: 0;
+      left: 0;
+      touch-action: none;
+    `;
+    if (rootEl) {
+      rootEl.style.cssText = `
+        width: 100%;
+        height: ${baseHeight}px;
+        max-height: ${baseHeight}px;
+      `;
+    }
+
+    return () => {
+      document.body.style.cssText = originalBodyStyle;
+      document.documentElement.style.cssText = originalHtmlStyle;
+      if (rootEl && originalRootStyle !== undefined) {
+        rootEl.style.cssText = originalRootStyle;
+      }
+    };
+  }, []);
 
   const handleInput = () => {
     if (!editorRef.current) return;
@@ -182,10 +317,15 @@ export default function TextEditModal({
     backgroundColor: 'transparent',
     border: 'none',
     cursor: 'pointer',
-    padding: '8px',
+    padding: '6px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+  };
+
+  // 터치 이벤트 전파 방지
+  const preventTouchPropagation = (e: React.TouchEvent) => {
+    e.stopPropagation();
   };
 
   const modalContent = (
@@ -193,18 +333,23 @@ export default function TextEditModal({
       {/* Full Screen Background - 클릭하면 저장 후 닫기 */}
       <div
         onClick={handleBackdropClick}
+        onTouchStart={preventTouchPropagation}
+        onTouchMove={preventTouchPropagation}
+        onTouchEnd={preventTouchPropagation}
         style={{
           position: 'fixed',
           top: 0,
           left: 0,
-          width: '100%',
-          height: '100vh',
+          width: '100vw',
+          height: baseViewportHeightRef.current ? `${baseViewportHeightRef.current}px` : '100vh',
           backgroundColor: 'rgba(128, 128, 128, 0.2)',
           backdropFilter: 'blur(5px)',
           WebkitBackdropFilter: 'blur(5px)',
-          zIndex: 100,
+          zIndex: 9999,
           display: 'flex',
           flexDirection: 'column',
+          overflow: 'hidden',
+          touchAction: 'none',
         }}
       >
         {/* Header - 완료 버튼만 */}
@@ -244,7 +389,7 @@ export default function TextEditModal({
           </button>
         </div>
 
-        {/* 중앙 편집 영역 - 인스타처럼 요소가 중앙에 위치 */}
+        {/* 중앙 편집 영역 - 키보드 높이만큼 영역 줄임 */}
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
@@ -253,6 +398,8 @@ export default function TextEditModal({
             alignItems: 'center',
             justifyContent: 'center',
             padding: '20px',
+            paddingBottom: `${80 + keyboardOffset}px`, // 툴바 + 키보드 여유
+            transition: 'padding-bottom 0.15s ease-out',
           }}
         >
           <div
@@ -282,7 +429,15 @@ export default function TextEditModal({
         {/* 하단 툴바 */}
         <div
           onClick={(e) => e.stopPropagation()}
-          style={{ width: '100%' }}
+          onTouchStart={(e) => e.stopPropagation()}
+          style={{
+            width: '100%',
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: `${keyboardOffset}px`,
+            zIndex: 10000,
+          }}
         >
           {/* 팝업 영역 */}
           {activePopup !== 'none' && (
@@ -370,29 +525,29 @@ export default function TextEditModal({
                 </div>
               )}
 
-              {/* 정렬 */}
-              {activePopup === 'align' && (
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                  {(['left', 'center', 'right'] as const).map((align) => (
-                    <button
-                      key={align}
-                      onClick={() => handleAlignChange(align)}
-                      style={{
-                        width: '44px', height: '44px', borderRadius: '8px',
-                        backgroundColor: currentAlign === align ? 'rgba(96, 192, 186, 0.25)' : 'transparent',
-                        border: 'none', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}
-                    >
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                        {align === 'left' && <path d="M3 4h14M3 8h8M3 12h14M3 16h8" stroke={currentAlign === align ? '#60c0ba' : '#fff'} strokeWidth="1.5" strokeLinecap="round" />}
-                        {align === 'center' && <path d="M3 4h14M6 8h8M3 12h14M6 16h8" stroke={currentAlign === align ? '#60c0ba' : '#fff'} strokeWidth="1.5" strokeLinecap="round" />}
-                        {align === 'right' && <path d="M3 4h14M9 8h8M3 12h14M9 16h8" stroke={currentAlign === align ? '#60c0ba' : '#fff'} strokeWidth="1.5" strokeLinecap="round" />}
-                      </svg>
-                    </button>
-                  ))}
-                </div>
-              )}
+          {/* 정렬 */}
+          {activePopup === 'align' && (
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+              {(['left', 'center', 'right'] as const).map((align) => (
+                <button
+                  key={align}
+                  onClick={() => handleAlignChange(align)}
+                  style={{
+                    width: '44px', height: '44px', borderRadius: '8px',
+                    backgroundColor: currentAlign === align ? 'rgba(96, 192, 186, 0.25)' : 'transparent',
+                    border: 'none', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    {align === 'left' && <path d="M3 4h14M3 8h8M3 12h14M3 16h8" stroke={currentAlign === align ? '#60c0ba' : '#fff'} strokeWidth="1.5" strokeLinecap="round" />}
+                    {align === 'center' && <path d="M3 4h14M6 8h8M3 12h14M6 16h8" stroke={currentAlign === align ? '#60c0ba' : '#fff'} strokeWidth="1.5" strokeLinecap="round" />}
+                    {align === 'right' && <path d="M3 4h14M9 8h8M3 12h14M9 16h8" stroke={currentAlign === align ? '#60c0ba' : '#fff'} strokeWidth="1.5" strokeLinecap="round" />}
+                  </svg>
+                </button>
+              ))}
+            </div>
+          )}
 
               {/* 간격 */}
               {activePopup === 'spacing' && (
@@ -433,7 +588,8 @@ export default function TextEditModal({
             style={{
               backgroundColor: 'rgba(50, 50, 50, 0.95)',
               padding: '8px 16px',
-              paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
+              // 키보드가 올라오면 bottom에 붙도록 padding 최소화
+              paddingBottom: keyboardOffset > 0 ? '8px' : 'max(8px, env(safe-area-inset-bottom))',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -494,10 +650,10 @@ export default function TextEditModal({
                 borderRadius: '8px',
               }}
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <rect x="4" y="6" width="16" height="2" rx="1" fill="#fff"/>
-                <rect x="4" y="11" width="10" height="2" rx="1" fill="#fff"/>
-                <rect x="4" y="16" width="14" height="2" rx="1" fill="#fff"/>
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <rect x="4" y="5" width="20" height="2.5" rx="1" fill="#fff"/>
+                <rect x="4" y="12.5" width="12" height="2.5" rx="1" fill="#fff"/>
+                <rect x="4" y="20" width="17" height="2.5" rx="1" fill="#fff"/>
               </svg>
             </button>
 
