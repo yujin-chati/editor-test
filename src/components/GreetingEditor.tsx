@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import EditableElement from './EditableElement';
 import SlimToolbar from './SlimToolbar';
 
@@ -57,9 +57,15 @@ export default function GreetingEditor({
 
   // 화면 크기에 따른 스케일 계산
   const [scale, setScale] = useState(1);
+  const [baseScale, setBaseScale] = useState(1);
+
+  // 편집 시 줌/이동용 ref
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // 현재 선택된 컴포넌트
   const selectedComponent = components.find((c) => c.id === selectedElementId) || null;
+  // 현재 편집 중인 컴포넌트
+  const editingComponent = components.find((c) => c.id === editingElementId) || null;
 
   // 템플릿 로드
   useEffect(() => {
@@ -93,13 +99,78 @@ export default function GreetingEditor({
       const scaleY = availableHeight / template.aspectRatio.y;
       const newScale = Math.min(scaleX, scaleY, 1);
 
-      setScale(newScale);
+      setBaseScale(newScale);
+      if (!selectedElementId) {
+        setScale(newScale);
+      }
     };
 
     calculateScale();
     window.addEventListener('resize', calculateScale);
     return () => window.removeEventListener('resize', calculateScale);
-  }, [template]);
+  }, [template, selectedElementId]);
+
+  // 편집 중인 요소의 위치 정보 계산 (편집 모드 진입 시 줌 적용)
+  const editingElementPosition = useMemo(() => {
+    if (!editingComponent || !template) return null;
+
+    const style = editingComponent.style;
+    const { aspectRatio } = template;
+    let elementWidth = aspectRatio.x;
+
+    if (style.width) {
+      if (style.width === '100%') {
+        elementWidth = aspectRatio.x;
+      } else {
+        elementWidth = parseFloat(String(style.width).replace('px', '')) || aspectRatio.x;
+      }
+    }
+
+    let left = 0;
+    if (style.left === '50%' && style.transform?.includes('translateX(-50%)')) {
+      left = (aspectRatio.x - elementWidth) / 2;
+    } else {
+      left = parseFloat(String(style.left).replace('px', '')) || 0;
+    }
+    const top = parseFloat(String(style.top).replace('px', '')) || 0;
+
+    // 요소 높이 추정 (lineHeight * 줄 수)
+    const lineHeight = parseFloat(String(style.lineHeight).replace('px', '')) || 20;
+    const lineCount = (editingComponent.content.match(/\n/g) || []).length + 1;
+    const elementHeight = lineHeight * lineCount;
+
+    return {
+      x: left,
+      y: top,
+      width: elementWidth,
+      height: elementHeight,
+      centerX: left + elementWidth / 2,
+      centerY: top + elementHeight / 2,
+    };
+  }, [editingComponent, template]);
+
+  // 편집 모드 진입 시 줌 및 중앙 이동 계산
+  const editZoomTransform = useMemo(() => {
+    if (!editingElementPosition || !template) {
+      return { scale: baseScale, translateX: 0, translateY: 0 };
+    }
+
+    const { aspectRatio } = template;
+    const zoomScale = Math.min(1.5, baseScale * 1.5); // 1.5배 줌 (최대 1.5)
+
+    // 카드 중앙 좌표
+    const cardCenterY = aspectRatio.y / 2;
+
+    // 가로는 항상 카드 중앙 유지 (offsetX = 0), 세로만 요소 위치에 맞춤
+    const offsetX = 0;
+    const offsetY = (cardCenterY - editingElementPosition.centerY) * zoomScale;
+
+    return {
+      scale: zoomScale,
+      translateX: offsetX,
+      translateY: offsetY,
+    };
+  }, [editingElementPosition, template, baseScale]);
 
   // 요소 위치 업데이트
   const handlePositionChange = (elementId: string, x: number, y: number) => {
@@ -160,43 +231,18 @@ export default function GreetingEditor({
     onUpdate?.(updatedComponents);
   };
 
-  // 폰트 사이즈 업데이트 (핀치 줌)
-  const handleFontSizeChange = (elementId: string, newFontSize: string, newWidth?: string) => {
-    const updatedComponents = components.map((comp) => {
-      if (comp.id === elementId) {
-        // 기존 fontSize와 새 fontSize의 비율 계산
-        const oldFontSize = parseFloat(String(comp.style.fontSize).replace('px', '')) || 16;
-        const newFontSizeValue = parseFloat(newFontSize.replace('px', ''));
-        const ratio = newFontSizeValue / oldFontSize;
-
-        // lineHeight도 비례해서 변경
-        let newLineHeight: string | undefined;
-        if (comp.style.lineHeight) {
-          const oldLineHeight = parseFloat(String(comp.style.lineHeight).replace('px', ''));
-          newLineHeight = `${Math.round(oldLineHeight * ratio * 10) / 10}px`;
-        }
-
-        return {
-          ...comp,
-          style: {
-            ...comp.style,
-            fontSize: newFontSize,
-            ...(newWidth && { width: newWidth }),
-            ...(newLineHeight && { lineHeight: newLineHeight }),
-          },
-        };
-      }
-      return comp;
-    });
-
-    setComponents(updatedComponents);
-    onUpdate?.(updatedComponents);
-  };
-
   // 요소 선택 시 툴바 열기
   const handleElementSelect = (elementId: string) => {
+    // 이미 편집 중인 다른 요소가 있으면 새 요소도 바로 편집 모드로
+    const wasEditing = editingElementId !== null;
+
     setSelectedElementId(elementId);
     setIsToolbarOpen(true);
+
+    // 이전에 편집 중이었으면 새 요소도 바로 편집 모드로 전환
+    if (wasEditing && editingElementId !== elementId) {
+      setEditingElementId(elementId);
+    }
   };
 
   // 인라인 편집 시작
@@ -241,19 +287,13 @@ export default function GreetingEditor({
 
   return (
     <div
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#e8e8e8',
-        padding: '10px',
-      }}
+      className="editor-container"
+      style={{ backgroundColor: '#000' }}
       onClick={handleBackgroundClick}
     >
       {/* 카드 컨테이너 */}
       <div
+        ref={containerRef}
         style={{
           position: 'relative',
           width: `${aspectRatio.x}px`,
@@ -262,8 +302,11 @@ export default function GreetingEditor({
           boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
           borderRadius: '4px',
           overflow: 'hidden',
-          transform: `scale(${scale})`,
+          transform: editingElementId
+            ? `scale(${editZoomTransform.scale}) translate(${editZoomTransform.translateX / editZoomTransform.scale}px, ${editZoomTransform.translateY / editZoomTransform.scale}px)`
+            : `scale(${baseScale})`,
           transformOrigin: 'center center',
+          transition: 'transform 0.3s ease-out',
         }}
         onClick={handleBackgroundClick}
       >
@@ -314,10 +357,13 @@ export default function GreetingEditor({
               content={content}
               style={textStyle}
               onSelect={() => handleElementSelect(id)}
+              onDeselect={() => {
+                setSelectedElementId(null);
+                setIsToolbarOpen(false);
+              }}
               onPositionChange={(x, y) => handlePositionChange(id, x, y)}
               onStartEdit={() => handleStartEdit(id)}
               onContentChange={(newContent) => handleContentChange(id, newContent)}
-              onFontSizeChange={(newFontSize, newWidth) => handleFontSizeChange(id, newFontSize, newWidth)}
               containerBounds={{ width: aspectRatio.x, height: aspectRatio.y }}
               guidelines={{
                 vertical: [aspectRatio.x / 2],

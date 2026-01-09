@@ -10,10 +10,10 @@ interface EditableElementProps {
   content: string;
   style: React.CSSProperties;
   onSelect: () => void;
+  onDeselect: () => void;
   onPositionChange: (x: number, y: number) => void;
   onStartEdit: () => void;
   onContentChange: (newContent: string) => void;
-  onFontSizeChange?: (newFontSize: string, newWidth?: string) => void;
   containerBounds?: { width: number; height: number };
   guidelines?: { vertical: number[]; horizontal: number[] };
 }
@@ -32,24 +32,19 @@ export default function EditableElement({
   content,
   style,
   onSelect,
+  onDeselect,
   onPositionChange,
   onStartEdit,
   onContentChange,
-  onFontSizeChange,
   containerBounds = { width: 335, height: 515 },
   guidelines = { vertical: [167.5], horizontal: [257.5] },
 }: EditableElementProps) {
   const targetRef = useRef<HTMLDivElement>(null);
   const editableRef = useRef<HTMLDivElement>(null);
-  const moveableRef = useRef<Moveable>(null);
 
   // 드래그 감지용
   const isDraggingRef = useRef(false);
   const mouseDownPosRef = useRef({ x: 0, y: 0 });
-
-  // 핀치 줌용 - 초기 fontSize, width 저장
-  const initialFontSizeRef = useRef<number>(0);
-  const initialWidthRef = useRef<number>(0);
 
   // position이 변경되면 DOM 직접 업데이트
   useEffect(() => {
@@ -112,11 +107,11 @@ export default function EditableElement({
     }
   };
 
-  // 클릭 핸들러
+  // 클릭 핸들러 - 클릭(탭)하면 바로 선택 + 편집 모드
   const handleClick = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
 
-    // 드래그했으면 클릭 무시
+    // 드래그했으면 클릭 무시 (드래그 후에는 선택 상태만 유지)
     if (isDraggingRef.current) {
       isDraggingRef.current = false;
       return;
@@ -125,8 +120,11 @@ export default function EditableElement({
     // 편집 중이면 텍스트 내 클릭이므로 무시
     if (isEditing) return;
 
-    // 클릭 = 선택 + 편집 모드 진입
-    onSelect();
+    // 클릭하면 바로 선택 + 편집 모드 진입
+    if (!isSelected) {
+      onSelect();
+    }
+    // 선택 후 바로 편집 모드 진입
     onStartEdit();
   };
 
@@ -154,6 +152,7 @@ export default function EditableElement({
           outline: isSelected ? '2px solid #60C0BA' : '1px dashed #999',
           outlineOffset: isSelected ? '4px' : '2px',
           borderRadius: '2px',
+          zIndex: isSelected ? 100 : 1,
         }}
       >
         {isEditing ? (
@@ -220,14 +219,11 @@ export default function EditableElement({
         )}
       </div>
 
-      {/* Moveable: 편집 중 아닐 때만 드래그 가능 */}
-      {!isEditing && targetRef.current && (
+      {/* Moveable: 드래그만 지원 (핀치 줌 제거) */}
+      {targetRef.current && (
         <Moveable
-          ref={moveableRef}
           target={targetRef.current}
           draggable={true}
-          scalable={true}
-          pinchable={true}
           snappable={true}
           snapThreshold={5}
           isDisplaySnapDigit={false}
@@ -237,62 +233,43 @@ export default function EditableElement({
           horizontalGuidelines={guidelines.horizontal}
           elementGuidelines={[]}
           hideDefaultLines={true}
-          keepRatio={true}
           onDragStart={() => {
             isDraggingRef.current = false;
           }}
           onDrag={(e) => {
+            // 편집 중이면 드래그 무시
+            if (isEditing) return;
+
             // 5px 이상 이동하면 드래그로 판정
             const dx = Math.abs(e.clientX - mouseDownPosRef.current.x);
             const dy = Math.abs(e.clientY - mouseDownPosRef.current.y);
             if (dx > 5 || dy > 5) {
               isDraggingRef.current = true;
+              // 드래그 시작 시 선택 상태로 전환 (줌 없이)
+              if (!isSelected) {
+                onSelect();
+              }
             }
 
-            // transform으로 이동
-            e.target.style.transform = e.transform;
+            // 드래그 중일 때만 transform 이동
+            if (isDraggingRef.current) {
+              e.target.style.transform = e.transform;
+            }
           }}
           onDragEnd={(e) => {
-            // transform에서 translate 값 추출
-            const matrix = new DOMMatrix(e.target.style.transform);
-            const x = matrix.m41;
-            const y = matrix.m42;
+            // 실제로 드래그가 발생했을 때만 위치 업데이트
+            if (isDraggingRef.current && !isEditing) {
+              // transform에서 translate 값 추출
+              const matrix = new DOMMatrix(e.target.style.transform);
+              const x = matrix.m41;
+              const y = matrix.m42;
 
-            onPositionChange(x, y);
-            isDraggingRef.current = false;
-          }}
-          onScaleStart={() => {
-            // 현재 fontSize, width 저장
-            const currentFontSize = parseFloat(String(style.fontSize).replace('px', '')) || 16;
-            const currentWidth = parseFloat(String(style.width).replace('px', '')) || containerBounds.width;
-            initialFontSizeRef.current = currentFontSize;
-            initialWidthRef.current = currentWidth;
-          }}
-          onScale={(e) => {
-            // 현재 위치 유지하면서 scale 적용
-            const scaleValue = e.scale[0];
-            e.target.style.transform = `translate(${position.x}px, ${position.y}px) scale(${scaleValue})`;
-          }}
-          onScaleEnd={(e) => {
-            // 최종 scale 값으로 fontSize, width 계산
-            const scale = e.lastEvent?.scale?.[0] || 1;
-            const newFontSize = Math.round(initialFontSizeRef.current * scale);
-            const newWidth = Math.round(initialWidthRef.current * scale);
-            const clampedFontSize = Math.max(8, Math.min(72, newFontSize));
-            const clampedWidth = Math.max(50, Math.min(containerBounds.width, newWidth));
-
-            // fontSize, width 업데이트
-            if (onFontSizeChange) {
-              onFontSizeChange(`${clampedFontSize}px`, `${clampedWidth}px`);
+              onPositionChange(x, y);
+              // 드래그 끝나면 선택 해제
+              onDeselect();
             }
-
-            // scale 리셋 (fontSize가 변경되었으므로)
-            e.target.style.transform = `translate(${position.x}px, ${position.y}px)`;
-
-            // 컨트롤 포인트 위치 업데이트 (약간의 딜레이 후)
-            setTimeout(() => {
-              moveableRef.current?.updateRect();
-            }, 0);
+            // 항상 드래그 상태 리셋
+            isDraggingRef.current = false;
           }}
           bounds={{
             left: -Infinity,

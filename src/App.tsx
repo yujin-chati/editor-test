@@ -37,18 +37,11 @@ function App() {
       </div>
 
       {/* 에디터 영역 */}
-      <div className="editor-container">
-        {editorMode === 'inline' ? (
-          <GreetingEditor onUpdate={handleUpdate} />
-        ) : (
-          <GreetingEditorModal onUpdate={handleUpdate} />
-        )}
-      </div>
-
-      {/* 하단 안내 */}
-      <div className="footer">
-        <p>탭하여 텍스트 편집 · 드래그하여 이동</p>
-      </div>
+      {editorMode === 'inline' ? (
+        <GreetingEditor onUpdate={handleUpdate} />
+      ) : (
+        <GreetingEditorModal onUpdate={handleUpdate} />
+      )}
     </div>
   );
 }

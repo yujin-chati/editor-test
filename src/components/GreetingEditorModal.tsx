@@ -58,6 +58,9 @@ export default function GreetingEditorModal({
 
   // 텍스트 편집 모달
   const [editingComponent, setEditingComponent] = useState<Component | null>(null);
+  // 편집 시작 시점의 초기값 (초기화용)
+  const [initialEditContent, setInitialEditContent] = useState<string | undefined>(undefined);
+  const [initialEditStyle, setInitialEditStyle] = useState<ComponentStyle | undefined>(undefined);
 
   // 화면 크기에 따른 스케일 계산
   const [scale, setScale] = useState(1);
@@ -175,6 +178,9 @@ export default function GreetingEditorModal({
 
   // 클릭 시 모달 열기
   const handleElementClick = (component: Component) => {
+    // 초기값 저장 (초기화용)
+    setInitialEditContent(component.content);
+    setInitialEditStyle({ ...component.style });
     setEditingComponent(component);
   };
 
@@ -206,32 +212,26 @@ export default function GreetingEditorModal({
 
   return (
     <div
+      className="editor-container"
       style={{
-        width: '100%',
-        height: editingComponent ? `${baseViewportHeightRef}px` : '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#e8e8e8',
-        padding: '10px',
-        position: editingComponent ? 'fixed' : 'relative',
-        inset: editingComponent ? 0 : undefined,
-        overflow: 'hidden',
+        backgroundColor: '#000',
+        ...(editingComponent && {
+          height: `${baseViewportHeightRef}px`,
+          position: 'fixed',
+          inset: 0,
+        }),
       }}
       onClick={handleBackgroundClick}
     >
-      {/* 카드 컨테이너 */}
+      {/* 카드 영역 */}
       <div
         style={{
           position: 'relative',
-          width: `${aspectRatio.x}px`,
-          height: `${aspectRatio.y}px`,
+          width: `${aspectRatio.x * scale}px`,
+          height: `${aspectRatio.y * scale}px`,
           backgroundColor: '#fff',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
           borderRadius: '4px',
           overflow: 'hidden',
-          transform: `scale(${scale})`,
-          transformOrigin: 'center center',
         }}
         onClick={handleBackgroundClick}
       >
@@ -258,18 +258,31 @@ export default function GreetingEditorModal({
           }
           top = parseFloat(String(style.top).replace('px', '')) || 0;
 
+          // scale 적용된 위치와 크기
+          const scaledLeft = left * scale;
+          const scaledTop = top * scale;
+          const scaledWidth = elementWidth * scale;
+
+          // 폰트 사이즈 scale 적용
+          const baseFontSize = parseFloat(String(style.fontSize).replace('px', '')) || 16;
+          const scaledFontSize = baseFontSize * scale;
+
+          // letterSpacing scale 적용
+          const baseLetterSpacing = parseFloat(String(style.letterSpacing).replace('px', '')) || 0;
+          const scaledLetterSpacing = baseLetterSpacing * scale;
+
           // 텍스트 스타일 객체
           const textStyle: React.CSSProperties = {
-            fontSize: style.fontSize,
+            fontSize: `${scaledFontSize}px`,
             fontFamily: style.fontFamily,
             fontWeight: style.fontWeight as number | undefined,
             textAlign: style.textAlign as 'left' | 'center' | 'right',
             lineHeight: style.lineHeight,
-            letterSpacing: style.letterSpacing,
+            letterSpacing: `${scaledLetterSpacing}px`,
             color: style.color,
             whiteSpace: (style.whiteSpace as 'pre-line' | 'nowrap') || 'pre-line',
             textTransform: style.textTransform as 'uppercase' | 'lowercase' | 'capitalize' | 'none',
-            width: style.width === '100%' ? `${aspectRatio.x}px` : style.width,
+            width: `${scaledWidth}px`,
           };
 
           return (
@@ -277,15 +290,15 @@ export default function GreetingEditorModal({
               key={id}
               id={id}
               isSelected={selectedElementId === id}
-              position={{ x: left, y: top }}
+              position={{ x: scaledLeft, y: scaledTop }}
               onSelect={() => handleElementSelect(id)}
-              onPositionChange={(x, y) => handlePositionChange(id, x, y)}
+              onPositionChange={(x, y) => handlePositionChange(id, x / scale, y / scale)}
               onClick={() => handleElementClick(component)}
               onRelease={() => setSelectedElementId(null)}
-              containerBounds={{ width: aspectRatio.x, height: aspectRatio.y }}
+              containerBounds={{ width: aspectRatio.x * scale, height: aspectRatio.y * scale }}
               guidelines={{
-                vertical: [aspectRatio.x / 2],
-                horizontal: [aspectRatio.y / 2],
+                vertical: [(aspectRatio.x * scale) / 2],
+                horizontal: [(aspectRatio.y * scale) / 2],
               }}
               disabled={Boolean(editingComponent)}
             >
@@ -303,6 +316,8 @@ export default function GreetingEditorModal({
       {editingComponent && (
         <TextEditModal
           component={editingComponent}
+          initialContent={initialEditContent}
+          initialStyle={initialEditStyle}
           onSave={(newContent) => handleContentChange(editingComponent.id, newContent)}
           onStyleChange={(newStyle) => handleStyleChange(editingComponent.id, newStyle)}
           onClose={() => setEditingComponent(null)}

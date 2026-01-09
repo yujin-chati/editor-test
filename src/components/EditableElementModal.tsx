@@ -126,6 +126,7 @@ export default function EditableElementModal({
           outlineOffset: isSelected ? '4px' : '2px',
           borderRadius: '2px',
           pointerEvents: disabled ? 'none' : 'auto',
+          zIndex: isSelected ? 100 : 1,
         }}
       >
         {children}
@@ -168,7 +169,7 @@ export default function EditableElementModal({
         )}
       </div>
 
-      {/* Moveable */}
+      {/* Moveable - 항상 렌더링하되, 드래그는 선택된 요소만 가능 */}
       {targetRef.current && !disabled && (
         <Moveable
           target={targetRef.current}
@@ -192,7 +193,7 @@ export default function EditableElementModal({
             isDraggingRef.current = false;
           }}
           onDrag={(e) => {
-            if (disabled || !allowDragRef.current) return;
+            if (disabled || !allowDragRef.current || !isSelected) return;
             // 5px 이상 이동하면 드래그로 판정
             const dx = Math.abs(e.clientX - mouseDownPosRef.current.x);
             const dy = Math.abs(e.clientY - mouseDownPosRef.current.y);

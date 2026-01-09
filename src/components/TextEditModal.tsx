@@ -36,6 +36,8 @@ interface Component {
 
 interface TextEditModalProps {
   component: Component;
+  initialContent?: string;
+  initialStyle?: ComponentStyle;
   onSave: (newContent: string) => void;
   onStyleChange: (newStyle: ComponentStyle) => void;
   onClose: () => void;
@@ -45,6 +47,8 @@ type ActivePopup = 'none' | 'font' | 'color' | 'size' | 'align' | 'spacing';
 
 export default function TextEditModal({
   component,
+  initialContent,
+  initialStyle,
   onSave,
   onStyleChange,
   onClose,
@@ -64,6 +68,8 @@ export default function TextEditModal({
 
   // 소프트 키보드가 올라왔을 때 툴바를 바로 위에 붙이기 위한 bottom 오프셋
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+  // iOS Safari에서 키보드로 인해 스크롤된 양 (헤더 위치 보정용)
+  const [scrollOffset, setScrollOffset] = useState(0);
   const keyboardWatcherRef = useRef<number | null>(null);
 
   const currentColor = component.style.color || '#333333';
@@ -115,6 +121,7 @@ export default function TextEditModal({
     const updateKeyboardOffset = () => {
       if (!viewport) {
         setKeyboardOffset(0);
+        setScrollOffset(0);
         return;
       }
 
@@ -126,12 +133,10 @@ export default function TextEditModal({
       // iOS Safari: offsetTop은 keyboard 위로 밀린 만큼을 포함
       const visibleBottom = viewport.offsetTop + viewport.height;
       const offset = Math.max(0, Math.round(layoutHeight - visibleBottom));
-      // 일부 케이스에서 offsetTop이 0으로 떨어지면 height 차이만 사용
-      const fallback = Math.max(
-        0,
-        Math.round(layoutHeight - viewport.height - viewport.offsetTop)
-      );
-      setKeyboardOffset(Math.max(offset, fallback));
+
+      // iOS Safari에서 키보드로 인해 스크롤된 양 (헤더 보정용)
+      const scrollY = Math.round(viewport.offsetTop);
+      setScrollOffset(scrollY);
       setKeyboardOffset(offset);
     };
 
@@ -158,7 +163,10 @@ export default function TextEditModal({
     };
 
     const handleFocusOut = () => {
-      setTimeout(() => setKeyboardOffset(0), 100);
+      setTimeout(() => {
+        setKeyboardOffset(0);
+        setScrollOffset(0);
+      }, 100);
       if (keyboardWatcherRef.current) {
         window.clearInterval(keyboardWatcherRef.current);
         keyboardWatcherRef.current = null;
@@ -309,6 +317,20 @@ export default function TextEditModal({
     onStyleChange({ letterSpacing: `${letterSpacing}px`, lineHeight: `${lineHeight}` });
   }, [onStyleChange]);
 
+  // 초기화 핸들러
+  const handleReset = useCallback(() => {
+    // 텍스트 초기화
+    if (initialContent !== undefined && editorRef.current) {
+      const htmlText = initialContent.replace(/\n/g, '<br>');
+      editorRef.current.innerHTML = htmlText;
+      setHtmlContent(htmlText);
+    }
+    // 스타일 초기화
+    if (initialStyle) {
+      onStyleChange(initialStyle);
+    }
+  }, [initialContent, initialStyle, onStyleChange]);
+
   const togglePopup = (popup: ActivePopup) => {
     setActivePopup(prev => prev === popup ? 'none' : popup);
   };
@@ -352,15 +374,53 @@ export default function TextEditModal({
           touchAction: 'none',
         }}
       >
-        {/* Header - 완료 버튼만 */}
+        {/* Header - 초기화 & 완료 버튼 (fixed at top, 스크롤 보정) */}
         <div
           style={{
+            position: 'fixed',
+            top: `${scrollOffset}px`,
+            left: 0,
+            right: 0,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'flex-end',
+            justifyContent: 'space-between',
             padding: '12px 20px',
+            paddingTop: 'max(12px, env(safe-area-inset-top))',
+            zIndex: 10001,
           }}
         >
+          {/* 초기화 버튼 */}
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleReset();
+            }}
+            style={{
+              backgroundColor: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+              opacity: (initialContent !== undefined || initialStyle) ? 1 : 0.5,
+            }}
+            disabled={!initialContent && !initialStyle}
+          >
+            <p
+              style={{
+                fontSize: '15px',
+                fontWeight: 600,
+                fontFamily: 'Pretendard, -apple-system, sans-serif',
+                color: '#ffffff',
+                margin: 0,
+                lineHeight: '1.5',
+                textShadow: '0 1px 3px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)',
+              }}
+            >
+              초기화
+            </p>
+          </button>
+
+          {/* 완료 버튼 */}
           <button
             onMouseDown={(e) => e.preventDefault()}
             onClick={(e) => {
@@ -376,12 +436,13 @@ export default function TextEditModal({
           >
             <p
               style={{
-                fontSize: '16px',
+                fontSize: '15px',
                 fontWeight: 600,
                 fontFamily: 'Pretendard, -apple-system, sans-serif',
                 color: '#ffffff',
                 margin: 0,
                 lineHeight: '1.5',
+                textShadow: '0 1px 3px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)',
               }}
             >
               완료
@@ -389,17 +450,21 @@ export default function TextEditModal({
           </button>
         </div>
 
-        {/* 중앙 편집 영역 - 키보드 높이만큼 영역 줄임 */}
+        {/* 중앙 편집 영역 - 헤더와 툴바/키보드 사이에 중앙 정렬 */}
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
-            flex: 1,
+            position: 'fixed',
+            top: `${56 + scrollOffset}px`, // 헤더 높이 + 스크롤 보정
+            left: 0,
+            right: 0,
+            bottom: `${80 + keyboardOffset}px`, // 툴바 + 키보드 높이
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             padding: '20px',
-            paddingBottom: `${80 + keyboardOffset}px`, // 툴바 + 키보드 여유
-            transition: 'padding-bottom 0.15s ease-out',
+            transition: 'top 0.1s ease-out, bottom 0.15s ease-out',
+            overflow: 'auto',
           }}
         >
           <div
